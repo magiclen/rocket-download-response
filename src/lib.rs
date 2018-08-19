@@ -1,5 +1,5 @@
 //! # Download Response for Rocket Framework
-//! This crate provides a response instance used for client downloading.
+//! This crate provides a response struct used for client downloading.
 
 extern crate mime_guess;
 extern crate rocket;
@@ -16,7 +16,7 @@ use rocket::request::Request;
 #[doc(hidden)]
 pub const DOWNLOAD_RESPONSE_CHUNK_SIZE: u64 = 4096;
 
-/// The response used for client downloading.
+/// The response struct used for client downloading.
 pub struct DownloadResponse {
     pub data: Box<Read>,
     pub attach_name: String,

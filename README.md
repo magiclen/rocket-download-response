@@ -1,7 +1,7 @@
 Download Response for Rocket Framework
 ====================
 
-This crate provides a response instance used for client downloading.
+This crate provides a response struct used for client downloading.
 
 ## License
 
