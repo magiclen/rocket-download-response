@@ -1,11 +1,11 @@
 [package]
 name = "rocket-download-response"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Magic Len <len@magiclen.org>"]
 repository = "https://github.com/magiclen/rocket-download-response"
 homepage = "https://magiclen.org/rocket-download-response"
-keywords = ["rocket", "server", "web", "etag", "http"]
-categories = ["parsing"]
+keywords = ["rocket", "server", "web", "download", "attach"]
+categories = ["web-programming"]
 description= "This crate provides a response instance used for client downloading."
 readme = "README.md"
 license = "MIT"
