@@ -13,8 +13,7 @@ use mime_guess::get_mime_type_str;
 use rocket::response::{self, Response, Responder};
 use rocket::request::Request;
 
-#[doc(hidden)]
-pub const DOWNLOAD_RESPONSE_CHUNK_SIZE: u64 = 4096;
+const DOWNLOAD_RESPONSE_CHUNK_SIZE: u64 = 4096;
 
 /// The response struct used for client downloading.
 pub struct DownloadResponse {
