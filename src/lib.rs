@@ -14,7 +14,7 @@ use rocket::response::{self, Response, Responder};
 use rocket::request::Request;
 
 #[doc(hidden)]
-pub const DOANLOAD_RESPONSE_CHUNK_SIZE: u64 = 4096;
+pub const DOWNLOAD_RESPONSE_CHUNK_SIZE: u64 = 4096;
 
 /// The response used for client downloading.
 pub struct DownloadResponse {
@@ -40,7 +40,7 @@ impl<'a> Responder<'a> for DownloadResponse {
             response.raw_header("Content-Length", content_length.to_string());
         }
 
-        response.chunked_body(self.data, DOANLOAD_RESPONSE_CHUNK_SIZE);
+        response.chunked_body(self.data, DOWNLOAD_RESPONSE_CHUNK_SIZE);
 
         response.ok()
     }
@@ -49,7 +49,11 @@ impl<'a> Responder<'a> for DownloadResponse {
 impl DownloadResponse {
     /// Create a DownloadResponse instance from a path of a file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> io::Result<DownloadResponse> {
-        let path = path.as_ref().canonicalize()?;
+        let path = path.as_ref();
+
+        if !path.exists() {
+            return Err(io::Error::from(ErrorKind::NotFound));
+        }
 
         if !path.is_file() {
             return Err(io::Error::from(ErrorKind::InvalidInput));
