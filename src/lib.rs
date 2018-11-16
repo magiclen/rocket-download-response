@@ -63,7 +63,7 @@ impl<'a> Responder<'a> for DownloadResponse<'a> {
 
 impl<'a> DownloadResponse<'a> {
     /// Create a `DownloadResponse` instance from a path of a file.
-    pub fn from_file<P: AsRef<Path>, S: Into<String>>(path: P, file_name: Option<S>, content_type: Option<Mime>) -> io::Result<DownloadResponse<'a>> {
+    pub fn from_file<P: AsRef<Path>, S: Into<String>>(path: P, file_name: Option<S>, content_type: Option<Mime>) -> io::Result<DownloadResponse<'static>> {
         let path = path.as_ref();
 
         if !path.exists() {
@@ -112,28 +112,28 @@ impl<'a> DownloadResponse<'a> {
     }
 
     /// Create a `DownloadResponse` instance from a Vec<u8>.
-    pub fn from_vec<S: Into<String>>(vec: Vec<u8>, file_name: S, content_type: Option<Mime>) -> io::Result<DownloadResponse<'a>> {
+    pub fn from_vec<S: Into<String>>(vec: Vec<u8>, file_name: S, content_type: Option<Mime>) -> DownloadResponse<'static> {
         let file_name = file_name.into();
 
         let content_length = vec.len();
 
-        Ok(DownloadResponse {
+        DownloadResponse {
             data: Box::from(Cursor::new(vec)),
             file_name,
             content_type,
             content_length: Some(content_length as u64),
-        })
+        }
     }
 
     /// Create a `DownloadResponse` instance from a reader.
-    pub fn from_reader<R: Read + 'a, S: Into<String>>(reader: R, file_name: S, content_type: Option<Mime>, content_length: Option<u64>) -> io::Result<DownloadResponse<'a>> {
+    pub fn from_reader<R: Read + 'a, S: Into<String>>(reader: R, file_name: S, content_type: Option<Mime>, content_length: Option<u64>) -> DownloadResponse<'a> {
         let file_name = file_name.into();
 
-        Ok(DownloadResponse {
+        DownloadResponse {
             data: Box::from(reader),
             file_name,
             content_type,
             content_length,
-        })
+        }
     }
 }
