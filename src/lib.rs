@@ -21,6 +21,7 @@ use rocket::response::{Response, Responder, Result};
 use rocket::request::Request;
 
 /// The response struct used for client downloading.
+#[derive(Debug)]
 pub struct DownloadResponse<'a> {
     pub data: Box<Read + 'a>,
     pub file_name: String,
