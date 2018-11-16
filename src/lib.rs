@@ -39,9 +39,13 @@ impl<'a> Responder<'a> for DownloadResponse<'a> {
     fn respond_to(self, _: &Request) -> Result<'a> {
         let mut response = Response::build();
 
-        response
-            .raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(self.file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)))
-            .raw_header("Content-Transfer-Encoding", "binary");
+        response.raw_header("Content-Transfer-Encoding", "binary");
+
+        if self.file_name.is_empty() {
+            response.raw_header("Content-Disposition", "attachment");
+        } else {
+            response.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(self.file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+        }
 
         if let Some(content_type) = self.content_type {
             response.raw_header("Content-Type", content_type.to_string());
