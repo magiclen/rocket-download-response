@@ -32,7 +32,7 @@ pub struct DownloadResponse<'a> {
 impl<'a> Debug for DownloadResponse<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
-            f.write_fmt(format_args!("DownloadResponse {{\n    file_name: {:#?},\n    content_type: {:#?},\n    content_length: {:#?}}}", self.file_name, self.content_type, self.content_length))
+            f.write_fmt(format_args!("DownloadResponse {{\n    file_name: {:#?},\n    content_type: {:#?},\n    content_length: {:#?}\n}}", self.file_name, self.content_type, self.content_length))
         }else {
             f.write_fmt(format_args!("DownloadResponse {{file_name: {:?}, content_type: {:?}, content_length: {:?}}}", self.file_name, self.content_type, self.content_length))
         }
