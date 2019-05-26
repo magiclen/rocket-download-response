@@ -91,8 +91,10 @@ impl DownloadResponse {
 macro_rules! file_name {
     ($s:expr, $res:expr) => {
         if let Some(file_name) = $s.file_name {
-            if !file_name.is_empty() {
-                $res.raw_header("Content-Disposition", format!("inline; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+            if file_name.is_empty() {
+                $res.raw_header("Content-Disposition", "attachment");
+            } else {
+                $res.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
             }
         }
     };
@@ -129,12 +131,16 @@ impl<'a> Responder<'a> for DownloadResponse {
             }
             DownloadResponseData::File(path) => {
                 if let Some(file_name) = self.file_name {
-                    if !file_name.is_empty() {
-                        response.raw_header("Content-Disposition", format!("inline; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+                    if file_name.is_empty() {
+                        response.raw_header("Content-Disposition", "attachment");
+                    } else {
+                        response.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
                     }
                 } else {
                     if let Some(file_name) = path.file_name().map(|file_name| file_name.to_string_lossy()) {
-                        response.raw_header("Content-Disposition", format!("inline; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+                        response.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+                    } else {
+                        response.raw_header("Content-Disposition", "attachment");
                     }
                 }
                 content_type!(self, response);
