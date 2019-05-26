@@ -10,10 +10,10 @@ use std::path::Path;
 use rocket_download_response::DownloadResponse;
 
 #[get("/")]
-fn download() -> DownloadResponse<'static> {
+fn download() -> DownloadResponse {
     let path = Path::join(Path::new("examples"), Path::join(Path::new("images"), "image(貓).jpg"));
 
-    DownloadResponse::from_file(path, None::<String>, None).unwrap()
+    DownloadResponse::from_file(path, None::<String>, None)
 }
 
 fn main() {
