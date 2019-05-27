@@ -149,7 +149,18 @@ impl<'a> Responder<'a> for DownloadResponse {
                         response.raw_header("Content-Disposition", "attachment");
                     }
                 }
-                content_type!(self, response);
+
+                if let Some(content_type) = self.content_type {
+                    response.raw_header("Content-Type", content_type.to_string());
+                } else {
+                    if let Some(extension) = path.extension() {
+                        if let Some(extension) = extension.to_str() {
+                            let content_type = mime_guess::get_mime_type(extension);
+
+                            response.raw_header("Content-Type", content_type.to_string());
+                        }
+                    }
+                }
 
                 let metadata = path.metadata().map_err(|_| Status::InternalServerError)?;
 
