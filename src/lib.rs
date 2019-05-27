@@ -13,7 +13,7 @@ extern crate rocket;
 #[macro_use]
 extern crate derivative;
 
-use std::io::{Read, Cursor};
+use std::io::{Read, Cursor, ErrorKind};
 use std::fs::File;
 use std::path::Path;
 use std::rc::Rc;
@@ -156,7 +156,15 @@ impl<'a> Responder<'a> for DownloadResponse {
                     }
                 }
 
-                let metadata = path.metadata().map_err(|_| Status::InternalServerError)?;
+                let metadata = path.metadata().map_err(|err| if err.kind() == ErrorKind::NotFound {
+                    Status::NotFound
+                } else {
+                    Status::InternalServerError
+                })?;
+
+                if !metadata.is_file() {
+                    return Err(Status::NotFound);
+                }
 
                 response.raw_header("Content-Length", metadata.len().to_string());
 
