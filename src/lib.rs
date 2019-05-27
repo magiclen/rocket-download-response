@@ -156,19 +156,13 @@ impl<'a> Responder<'a> for DownloadResponse {
                     }
                 }
 
-                let metadata = path.metadata().map_err(|err| if err.kind() == ErrorKind::NotFound {
+                let file = File::open(path).map_err(|err| if err.kind() == ErrorKind::NotFound {
                     Status::NotFound
                 } else {
                     Status::InternalServerError
                 })?;
 
-                if !metadata.is_file() {
-                    return Err(Status::NotFound);
-                }
-
-                response.raw_header("Content-Length", metadata.len().to_string());
-
-                response.streamed_body(File::open(path).map_err(|_| Status::InternalServerError)?);
+                response.sized_body(file);
             }
         }
 
