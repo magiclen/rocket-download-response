@@ -1,6 +1,6 @@
 [package]
 name = "rocket-download-response"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Magic Len <len@magiclen.org>"]
 repository = "https://github.com/magiclen/rocket-download-response"
 homepage = "https://magiclen.org/rocket-download-response"

@@ -86,6 +86,12 @@ impl DownloadResponse {
             data,
         }
     }
+
+    #[inline]
+    /// Get the mutable reference of the file name.
+    pub fn get_file_name_mut(&mut self) -> Option<&mut String> {
+        self.file_name.as_mut()
+    }
 }
 
 macro_rules! file_name {
