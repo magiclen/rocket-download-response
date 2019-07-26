@@ -11,7 +11,7 @@ extern crate mime_guess;
 extern crate percent_encoding;
 extern crate rocket;
 #[macro_use]
-extern crate derivative;
+extern crate educe;
 
 use std::io::{Read, Cursor, ErrorKind};
 use std::fs::File;
@@ -24,13 +24,13 @@ use rocket::response::{self, Response, Responder};
 use rocket::request::Request;
 use rocket::http::Status;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Educe)]
+#[educe(Debug)]
 enum DownloadResponseData {
     Vec(Vec<u8>),
     Reader {
-        #[derivative(Debug = "ignore")]
-        data: Box<Read + 'static>,
+        #[educe(Debug(ignore))]
+        data: Box<dyn Read + 'static>,
         content_length: Option<u64>,
     },
     File(Rc<Path>),
