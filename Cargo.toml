@@ -10,8 +10,9 @@ description= "This crate provides a response struct used for client downloading.
 readme = "README.md"
 license = "MIT"
 
-[badges]
-travis-ci = { repository = "magiclen/rocket-download-response", branch = "master" }
+[badges.travis-ci]
+repository = "magiclen/rocket-download-response"
+branch = "master"
 
 [dependencies]
 educe = ">=0.0.1"
