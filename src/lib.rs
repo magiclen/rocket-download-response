@@ -13,16 +13,16 @@ extern crate rocket;
 #[macro_use]
 extern crate educe;
 
-use std::io::{Read, Cursor, ErrorKind};
 use std::fs::File;
+use std::io::{Cursor, ErrorKind, Read};
 use std::path::Path;
 use std::rc::Rc;
 
 use mime::Mime;
 
-use rocket::response::{self, Response, Responder};
-use rocket::request::Request;
 use rocket::http::Status;
+use rocket::request::Request;
+use rocket::response::{self, Responder, Response};
 
 #[derive(Educe)]
 #[educe(Debug)]
@@ -45,7 +45,11 @@ pub struct DownloadResponse {
 
 impl DownloadResponse {
     /// Create a `DownloadResponse` instance from a `Vec<u8>`.
-    pub fn from_vec<S: Into<String>>(vec: Vec<u8>, file_name: Option<S>, content_type: Option<Mime>) -> DownloadResponse {
+    pub fn from_vec<S: Into<String>>(
+        vec: Vec<u8>,
+        file_name: Option<S>,
+        content_type: Option<Mime>,
+    ) -> DownloadResponse {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Vec(vec);
@@ -58,7 +62,12 @@ impl DownloadResponse {
     }
 
     /// Create a `DownloadResponse` instance from a reader.
-    pub fn from_reader<R: Read + 'static, S: Into<String>>(reader: R, file_name: Option<S>, content_type: Option<Mime>, content_length: Option<u64>) -> DownloadResponse {
+    pub fn from_reader<R: Read + 'static, S: Into<String>>(
+        reader: R,
+        file_name: Option<S>,
+        content_type: Option<Mime>,
+        content_length: Option<u64>,
+    ) -> DownloadResponse {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Reader {
@@ -74,7 +83,11 @@ impl DownloadResponse {
     }
 
     /// Create a `DownloadResponse` instance from a path of a file.
-    pub fn from_file<P: Into<Rc<Path>>, S: Into<String>>(path: P, file_name: Option<S>, content_type: Option<Mime>) -> DownloadResponse {
+    pub fn from_file<P: Into<Rc<Path>>, S: Into<String>>(
+        path: P,
+        file_name: Option<S>,
+        content_type: Option<Mime>,
+    ) -> DownloadResponse {
         let path = path.into();
         let file_name = file_name.map(|file_name| file_name.into());
 
@@ -94,7 +107,16 @@ macro_rules! file_name {
             if file_name.is_empty() {
                 $res.raw_header("Content-Disposition", "attachment");
             } else {
-                $res.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+                $res.raw_header(
+                    "Content-Disposition",
+                    format!(
+                        "attachment; filename*=UTF-8''{}",
+                        percent_encoding::percent_encode(
+                            file_name.as_bytes(),
+                            percent_encoding::QUERY_ENCODE_SET
+                        )
+                    ),
+                );
             }
         }
     };
@@ -119,7 +141,10 @@ impl<'a> Responder<'a> for DownloadResponse {
 
                 response.sized_body(Cursor::new(data));
             }
-            DownloadResponseData::Reader { data, content_length } => {
+            DownloadResponseData::Reader {
+                data,
+                content_length,
+            } => {
                 file_name!(self, response);
                 content_type!(self, response);
 
@@ -134,32 +159,50 @@ impl<'a> Responder<'a> for DownloadResponse {
                     if file_name.is_empty() {
                         response.raw_header("Content-Disposition", "attachment");
                     } else {
-                        response.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
+                        response.raw_header(
+                            "Content-Disposition",
+                            format!(
+                                "attachment; filename*=UTF-8''{}",
+                                percent_encoding::percent_encode(
+                                    file_name.as_bytes(),
+                                    percent_encoding::QUERY_ENCODE_SET
+                                )
+                            ),
+                        );
                     }
+                } else if let Some(file_name) =
+                    path.file_name().map(|file_name| file_name.to_string_lossy())
+                {
+                    response.raw_header(
+                        "Content-Disposition",
+                        format!(
+                            "attachment; filename*=UTF-8''{}",
+                            percent_encoding::percent_encode(
+                                file_name.as_bytes(),
+                                percent_encoding::QUERY_ENCODE_SET
+                            )
+                        ),
+                    );
                 } else {
-                    if let Some(file_name) = path.file_name().map(|file_name| file_name.to_string_lossy()) {
-                        response.raw_header("Content-Disposition", format!("attachment; filename*=UTF-8''{}", percent_encoding::percent_encode(file_name.as_bytes(), percent_encoding::QUERY_ENCODE_SET)));
-                    } else {
-                        response.raw_header("Content-Disposition", "attachment");
-                    }
+                    response.raw_header("Content-Disposition", "attachment");
                 }
 
                 if let Some(content_type) = self.content_type {
                     response.raw_header("Content-Type", content_type.to_string());
-                } else {
-                    if let Some(extension) = path.extension() {
-                        if let Some(extension) = extension.to_str() {
-                            let content_type = mime_guess::from_ext(extension).first_or_octet_stream();
+                } else if let Some(extension) = path.extension() {
+                    if let Some(extension) = extension.to_str() {
+                        let content_type = mime_guess::from_ext(extension).first_or_octet_stream();
 
-                            response.raw_header("Content-Type", content_type.to_string());
-                        }
+                        response.raw_header("Content-Type", content_type.to_string());
                     }
                 }
 
-                let file = File::open(path).map_err(|err| if err.kind() == ErrorKind::NotFound {
-                    Status::NotFound
-                } else {
-                    Status::InternalServerError
+                let file = File::open(path).map_err(|err| {
+                    if err.kind() == ErrorKind::NotFound {
+                        Status::NotFound
+                    } else {
+                        Status::InternalServerError
+                    }
                 })?;
 
                 response.sized_body(file);
