@@ -19,10 +19,17 @@ use std::path::Path;
 use std::rc::Rc;
 
 use mime::Mime;
+use percent_encoding::{AsciiSet, CONTROLS};
 
 use rocket::http::Status;
 use rocket::request::Request;
 use rocket::response::{self, Responder, Response};
+
+const FRAGMENT_PERCENT_ENCODE_SET: &AsciiSet =
+    &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
+
+const PATH_PERCENT_ENCODE_SET: &AsciiSet =
+    &FRAGMENT_PERCENT_ENCODE_SET.add(b'#').add(b'?').add(b'{').add(b'}');
 
 #[derive(Educe)]
 #[educe(Debug)]
@@ -113,7 +120,7 @@ macro_rules! file_name {
                         "attachment; filename*=UTF-8''{}",
                         percent_encoding::percent_encode(
                             file_name.as_bytes(),
-                            percent_encoding::QUERY_ENCODE_SET
+                            PATH_PERCENT_ENCODE_SET
                         )
                     ),
                 );
@@ -165,7 +172,7 @@ impl<'a> Responder<'a> for DownloadResponse {
                                 "attachment; filename*=UTF-8''{}",
                                 percent_encoding::percent_encode(
                                     file_name.as_bytes(),
-                                    percent_encoding::QUERY_ENCODE_SET
+                                    PATH_PERCENT_ENCODE_SET,
                                 )
                             ),
                         );
@@ -179,7 +186,7 @@ impl<'a> Responder<'a> for DownloadResponse {
                             "attachment; filename*=UTF-8''{}",
                             percent_encoding::percent_encode(
                                 file_name.as_bytes(),
-                                percent_encoding::QUERY_ENCODE_SET
+                                PATH_PERCENT_ENCODE_SET,
                             )
                         ),
                     );
