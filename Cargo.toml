@@ -1,6 +1,6 @@
 [package]
 name = "rocket-download-response"
-version = "0.4.10"
+version = "0.4.11"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/rocket-download-response"
@@ -10,6 +10,7 @@ categories = ["web-programming"]
 description= "This crate provides a response struct used for client downloading."
 readme = "README.md"
 license = "MIT"
+include = ["src/**/*", "Cargo.toml"]
 
 [badges.travis-ci]
 repository = "magiclen/rocket-download-response"
