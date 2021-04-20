@@ -1,6 +1,6 @@
 [package]
 name = "rocket-download-response"
-version = "0.4.13"
+version = "0.5.0"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/rocket-download-response"
@@ -17,7 +17,7 @@ repository = "magiclen/rocket-download-response"
 branch = "master"
 
 [dependencies]
-rocket = "0.4.2"
+rocket = { git = "https://github.com/SergioBenitez/Rocket", version = "0.5.0-dev" }
 mime = "0.3.13"
 mime_guess = " 2.0.0"
 percent-encoding = "2"

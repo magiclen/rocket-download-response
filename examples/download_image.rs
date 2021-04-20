@@ -1,5 +1,3 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 #[macro_use]
 extern crate rocket;
 
@@ -16,6 +14,7 @@ fn download() -> DownloadResponse {
     DownloadResponse::from_file(path, None::<String>, None)
 }
 
-fn main() {
-    rocket::ignite().mount("/", routes![download]).launch();
+#[launch]
+fn rocket() -> _ {
+    rocket::build().mount("/", routes![download])
 }

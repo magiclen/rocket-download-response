@@ -14,7 +14,8 @@ extern crate rocket;
 extern crate educe;
 
 use std::fs::File;
-use std::io::{Cursor, ErrorKind, Read};
+use std::io::{Cursor, ErrorKind};
+use std::marker::Unpin;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -25,6 +26,9 @@ use rocket::http::Status;
 use rocket::request::Request;
 use rocket::response::{self, Responder, Response};
 
+use rocket::tokio::fs::File as AsyncFile;
+use rocket::tokio::io::AsyncRead;
+
 const FRAGMENT_PERCENT_ENCODE_SET: &AsciiSet =
     &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
 
@@ -33,36 +37,38 @@ const PATH_PERCENT_ENCODE_SET: &AsciiSet =
 
 #[derive(Educe)]
 #[educe(Debug)]
-enum DownloadResponseData {
-    Static(&'static [u8]),
+enum DownloadResponseData<'r> {
+    Slice(&'r [u8]),
     Vec(Vec<u8>),
     Reader {
         #[educe(Debug(ignore))]
-        data: Box<dyn Read + 'static>,
+        data: Box<dyn AsyncRead + Send + Unpin + 'r>,
         content_length: Option<u64>,
     },
     File(Rc<Path>),
 }
 
+pub type DownloadResponse = DownloadResponsePro<'static>;
+
 #[derive(Debug)]
-pub struct DownloadResponse {
+pub struct DownloadResponsePro<'r> {
     file_name: Option<String>,
     content_type: Option<Mime>,
-    data: DownloadResponseData,
+    data: DownloadResponseData<'r>,
 }
 
-impl DownloadResponse {
-    /// Create a `DownloadResponse` instance from a `&'static [u8]`.
-    pub fn from_static<S: Into<String>>(
-        data: &'static [u8],
+impl<'r> DownloadResponsePro<'r> {
+    /// Create a `DownloadResponse` instance from a `&'r [u8]`.
+    pub fn from_slice<S: Into<String>>(
+        data: &'r [u8],
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponse {
+    ) -> DownloadResponsePro<'r> {
         let file_name = file_name.map(|file_name| file_name.into());
 
-        let data = DownloadResponseData::Static(data);
+        let data = DownloadResponseData::Slice(data);
 
-        DownloadResponse {
+        DownloadResponsePro {
             file_name,
             content_type,
             data,
@@ -74,12 +80,12 @@ impl DownloadResponse {
         vec: Vec<u8>,
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponse {
+    ) -> DownloadResponsePro<'r> {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Vec(vec);
 
-        DownloadResponse {
+        DownloadResponsePro {
             file_name,
             content_type,
             data,
@@ -87,12 +93,12 @@ impl DownloadResponse {
     }
 
     /// Create a `DownloadResponse` instance from a reader.
-    pub fn from_reader<R: Read + 'static, S: Into<String>>(
+    pub fn from_reader<R: AsyncRead + Send + Unpin + 'r, S: Into<String>>(
         reader: R,
         file_name: Option<S>,
         content_type: Option<Mime>,
         content_length: Option<u64>,
-    ) -> DownloadResponse {
+    ) -> DownloadResponsePro<'r> {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Reader {
@@ -100,7 +106,7 @@ impl DownloadResponse {
             content_length,
         };
 
-        DownloadResponse {
+        DownloadResponsePro {
             file_name,
             content_type,
             data,
@@ -112,13 +118,13 @@ impl DownloadResponse {
         path: P,
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponse {
+    ) -> DownloadResponsePro<'r> {
         let path = path.into();
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::File(path);
 
-        DownloadResponse {
+        DownloadResponsePro {
             file_name,
             content_type,
             data,
@@ -155,22 +161,23 @@ macro_rules! content_type {
     };
 }
 
-impl<'a> Responder<'a> for DownloadResponse {
-    fn respond_to(self, _: &Request) -> response::Result<'a> {
+#[rocket::async_trait]
+impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
+    fn respond_to(self, _: &'r Request<'_>) -> response::Result<'o> {
         let mut response = Response::build();
 
         match self.data {
-            DownloadResponseData::Static(data) => {
+            DownloadResponseData::Slice(data) => {
                 file_name!(self, response);
                 content_type!(self, response);
 
-                response.sized_body(Cursor::new(data));
+                response.sized_body(data.len(), Cursor::new(data));
             }
             DownloadResponseData::Vec(data) => {
                 file_name!(self, response);
                 content_type!(self, response);
 
-                response.sized_body(Cursor::new(data));
+                response.sized_body(data.len(), Cursor::new(data));
             }
             DownloadResponseData::Reader {
                 data,
@@ -236,7 +243,7 @@ impl<'a> Responder<'a> for DownloadResponse {
                     }
                 })?;
 
-                response.sized_body(file);
+                response.sized_body(None, AsyncFile::from_std(file));
             }
         }
 
