@@ -161,7 +161,6 @@ macro_rules! content_type {
     };
 }
 
-#[rocket::async_trait]
 impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
     fn respond_to(self, _: &'r Request<'_>) -> response::Result<'o> {
         let mut response = Response::build();
