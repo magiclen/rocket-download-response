@@ -8,8 +8,8 @@ See `examples`.
 
 pub extern crate mime;
 extern crate mime_guess;
-extern crate percent_encoding;
 extern crate rocket;
+extern crate url_escape;
 #[macro_use]
 extern crate educe;
 
@@ -20,7 +20,6 @@ use std::path::Path;
 use std::rc::Rc;
 
 use mime::Mime;
-use percent_encoding::{AsciiSet, CONTROLS};
 
 use rocket::http::Status;
 use rocket::request::Request;
@@ -28,12 +27,6 @@ use rocket::response::{self, Responder, Response};
 
 use rocket::tokio::fs::File as AsyncFile;
 use rocket::tokio::io::AsyncRead;
-
-const FRAGMENT_PERCENT_ENCODE_SET: &AsciiSet =
-    &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
-
-const PATH_PERCENT_ENCODE_SET: &AsciiSet =
-    &FRAGMENT_PERCENT_ENCODE_SET.add(b'#').add(b'?').add(b'{').add(b'}');
 
 #[derive(Educe)]
 #[educe(Debug)]
@@ -138,16 +131,11 @@ macro_rules! file_name {
             if file_name.is_empty() {
                 $res.raw_header("Content-Disposition", "attachment");
             } else {
-                $res.raw_header(
-                    "Content-Disposition",
-                    format!(
-                        "attachment; filename*=UTF-8''{}",
-                        percent_encoding::percent_encode(
-                            file_name.as_bytes(),
-                            PATH_PERCENT_ENCODE_SET
-                        )
-                    ),
-                );
+                let mut v = String::from("attachment; filename*=UTF-8''");
+
+                url_escape::encode_component_to_string(file_name, &mut v);
+
+                $res.raw_header("Content-Disposition", v);
             }
         }
     };
@@ -196,30 +184,20 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
                     if file_name.is_empty() {
                         response.raw_header("Content-Disposition", "attachment");
                     } else {
-                        response.raw_header(
-                            "Content-Disposition",
-                            format!(
-                                "attachment; filename*=UTF-8''{}",
-                                percent_encoding::percent_encode(
-                                    file_name.as_bytes(),
-                                    PATH_PERCENT_ENCODE_SET,
-                                )
-                            ),
-                        );
+                        let mut v = String::from("attachment; filename*=UTF-8''");
+
+                        url_escape::encode_component_to_string(file_name, &mut v);
+
+                        response.raw_header("Content-Disposition", v);
                     }
                 } else if let Some(file_name) =
                     path.file_name().map(|file_name| file_name.to_string_lossy())
                 {
-                    response.raw_header(
-                        "Content-Disposition",
-                        format!(
-                            "attachment; filename*=UTF-8''{}",
-                            percent_encoding::percent_encode(
-                                file_name.as_bytes(),
-                                PATH_PERCENT_ENCODE_SET,
-                            )
-                        ),
-                    );
+                    let mut v = String::from("attachment; filename*=UTF-8''");
+
+                    url_escape::encode_component_to_string(file_name, &mut v);
+
+                    response.raw_header("Content-Disposition", v);
                 } else {
                     response.raw_header("Content-Disposition", "attachment");
                 }
