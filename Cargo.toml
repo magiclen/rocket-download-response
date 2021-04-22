@@ -12,10 +12,6 @@ readme = "README.md"
 license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
-[badges.travis-ci]
-repository = "magiclen/rocket-download-response"
-branch = "master"
-
 [dependencies]
 rocket = { git = "https://github.com/SergioBenitez/Rocket", version = "0.5.0-dev" }
 mime = "0.3.13"

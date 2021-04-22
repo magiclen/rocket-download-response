@@ -1,7 +1,7 @@
 Download Response for Rocket Framework
 ====================
 
-[![Build Status](https://travis-ci.org/magiclen/rocket-download-response.svg?branch=master)](https://travis-ci.org/magiclen/rocket-download-response)
+[![CI](https://github.com/magiclen/rocket-download-response/actions/workflows/ci.yml/badge.svg)](https://github.com/magiclen/rocket-download-response/actions/workflows/ci.yml)
 
 This crate provides a response struct used for client downloading.
 
