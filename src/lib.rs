@@ -30,12 +30,12 @@ use rocket::tokio::io::AsyncRead;
 
 #[derive(Educe)]
 #[educe(Debug)]
-enum DownloadResponseData<'r> {
-    Slice(&'r [u8]),
+enum DownloadResponseData<'o> {
+    Slice(&'o [u8]),
     Vec(Vec<u8>),
     Reader {
         #[educe(Debug(ignore))]
-        data: Box<dyn AsyncRead + Send + Unpin + 'r>,
+        data: Box<dyn AsyncRead + Send + Unpin + 'o>,
         content_length: Option<u64>,
     },
     File(Rc<Path>),
@@ -44,19 +44,19 @@ enum DownloadResponseData<'r> {
 pub type DownloadResponse = DownloadResponsePro<'static>;
 
 #[derive(Debug)]
-pub struct DownloadResponsePro<'r> {
+pub struct DownloadResponsePro<'o> {
     file_name: Option<String>,
     content_type: Option<Mime>,
-    data: DownloadResponseData<'r>,
+    data: DownloadResponseData<'o>,
 }
 
-impl<'r> DownloadResponsePro<'r> {
+impl<'o> DownloadResponsePro<'o> {
     /// Create a `DownloadResponse` instance from a `&'r [u8]`.
     pub fn from_slice<S: Into<String>>(
-        data: &'r [u8],
+        data: &'o [u8],
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponsePro<'r> {
+    ) -> DownloadResponsePro<'o> {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Slice(data);
@@ -73,7 +73,7 @@ impl<'r> DownloadResponsePro<'r> {
         vec: Vec<u8>,
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponsePro<'r> {
+    ) -> DownloadResponsePro<'o> {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Vec(vec);
@@ -86,12 +86,12 @@ impl<'r> DownloadResponsePro<'r> {
     }
 
     /// Create a `DownloadResponse` instance from a reader.
-    pub fn from_reader<R: AsyncRead + Send + Unpin + 'r, S: Into<String>>(
+    pub fn from_reader<R: AsyncRead + Send + Unpin + 'o, S: Into<String>>(
         reader: R,
         file_name: Option<S>,
         content_type: Option<Mime>,
         content_length: Option<u64>,
-    ) -> DownloadResponsePro<'r> {
+    ) -> DownloadResponsePro<'o> {
         let file_name = file_name.map(|file_name| file_name.into());
 
         let data = DownloadResponseData::Reader {
@@ -111,7 +111,7 @@ impl<'r> DownloadResponsePro<'r> {
         path: P,
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponsePro<'r> {
+    ) -> DownloadResponsePro<'o> {
         let path = path.into();
         let file_name = file_name.map(|file_name| file_name.into());
 
