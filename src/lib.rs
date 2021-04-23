@@ -51,7 +51,7 @@ pub struct DownloadResponsePro<'o> {
 }
 
 impl<'o> DownloadResponsePro<'o> {
-    /// Create a `DownloadResponse` instance from a `&'r [u8]`.
+    /// Create a `DownloadResponse` instance from a `&'o [u8]`.
     pub fn from_slice<S: Into<String>>(
         data: &'o [u8],
         file_name: Option<S>,
