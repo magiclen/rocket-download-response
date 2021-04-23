@@ -13,15 +13,13 @@ extern crate url_escape;
 #[macro_use]
 extern crate educe;
 
-use std::fs::File;
-use std::io::{Cursor, ErrorKind};
+use std::io::{self, Cursor};
 use std::marker::Unpin;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use mime::Mime;
 
-use rocket::http::Status;
 use rocket::request::Request;
 use rocket::response::{self, Responder, Response};
 
@@ -38,7 +36,7 @@ enum DownloadResponseData<'o> {
         data: Box<dyn AsyncRead + Send + Unpin + 'o>,
         content_length: Option<u64>,
     },
-    File(Rc<Path>),
+    File(Arc<Path>, AsyncFile),
 }
 
 pub type DownloadResponse = DownloadResponsePro<'static>;
@@ -107,21 +105,24 @@ impl<'o> DownloadResponsePro<'o> {
     }
 
     /// Create a `DownloadResponse` instance from a path of a file.
-    pub fn from_file<P: Into<Rc<Path>>, S: Into<String>>(
+    pub async fn from_file<P: Into<Arc<Path>>, S: Into<String>>(
         path: P,
         file_name: Option<S>,
         content_type: Option<Mime>,
-    ) -> DownloadResponsePro<'o> {
+    ) -> Result<DownloadResponsePro<'o>, io::Error> {
         let path = path.into();
+
+        let file = AsyncFile::open(path.as_ref()).await?;
+
         let file_name = file_name.map(|file_name| file_name.into());
 
-        let data = DownloadResponseData::File(path);
+        let data = DownloadResponseData::File(path, file);
 
-        DownloadResponsePro {
+        Ok(DownloadResponsePro {
             file_name,
             content_type,
             data,
-        }
+        })
     }
 }
 
@@ -179,7 +180,7 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
 
                 response.streamed_body(data);
             }
-            DownloadResponseData::File(path) => {
+            DownloadResponseData::File(path, file) => {
                 if let Some(file_name) = self.file_name {
                     if file_name.is_empty() {
                         response.raw_header("Content-Disposition", "attachment");
@@ -212,15 +213,7 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
                     }
                 }
 
-                let file = File::open(path).map_err(|err| {
-                    if err.kind() == ErrorKind::NotFound {
-                        Status::NotFound
-                    } else {
-                        Status::InternalServerError
-                    }
-                })?;
-
-                response.sized_body(None, AsyncFile::from_std(file));
+                response.sized_body(None, file);
             }
         }
 

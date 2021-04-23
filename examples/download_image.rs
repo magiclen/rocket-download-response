@@ -3,15 +3,24 @@ extern crate rocket;
 
 extern crate rocket_download_response;
 
+use std::io::ErrorKind;
 use std::path::Path;
+
+use rocket::http::Status;
 
 use rocket_download_response::DownloadResponse;
 
 #[get("/")]
-fn download() -> DownloadResponse {
+async fn download() -> Result<DownloadResponse, Status> {
     let path = Path::join(Path::new("examples"), Path::join(Path::new("images"), "image(貓).jpg"));
 
-    DownloadResponse::from_file(path, None::<String>, None)
+    DownloadResponse::from_file(path, None::<String>, None).await.map_err(|err| {
+        if err.kind() == ErrorKind::NotFound {
+            Status::NotFound
+        } else {
+            Status::InternalServerError
+        }
+    })
 }
 
 #[launch]
