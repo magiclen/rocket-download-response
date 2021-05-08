@@ -50,7 +50,6 @@ impl<'v> TempFileAsyncReader<'v> {
             ..
         } = temp_file.as_ref()
         {
-            println!("{:?}", path);
             AsyncFile::from_std(File::open(path)?)
         } else {
             unreachable!()
