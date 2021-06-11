@@ -3,7 +3,7 @@ use std::io::{self};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::rocket::data::TempFile;
+use crate::rocket::fs::TempFile;
 
 use crate::rocket::tokio::fs::File as AsyncFile;
 use crate::rocket::tokio::io::{AsyncRead, ReadBuf};

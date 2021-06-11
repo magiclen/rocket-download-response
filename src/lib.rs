@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use mime::Mime;
 
-use rocket::data::TempFile;
+use rocket::fs::TempFile;
 use rocket::http::Status;
 use rocket::request::Request;
 use rocket::response::{self, Responder, Response};
