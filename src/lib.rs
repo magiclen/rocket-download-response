@@ -7,9 +7,7 @@ See `examples`.
 */
 
 pub extern crate mime;
-extern crate mime_guess;
-extern crate rocket;
-extern crate url_escape;
+
 #[macro_use]
 extern crate educe;
 
