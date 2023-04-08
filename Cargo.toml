@@ -3,6 +3,7 @@ name = "rocket-download-response"
 version = "0.5.2"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2021"
+rust-version = "1.63"
 repository = "https://github.com/magiclen/rocket-download-response"
 homepage = "https://magiclen.org/rocket-download-response"
 keywords = ["rocket", "server", "web", "download", "attach"]
@@ -13,7 +14,7 @@ license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
-rocket = "0.5.0-rc.2"
+rocket = "0.5.0-rc.3"
 mime = "0.3.13"
 mime_guess = " 2.0.0"
 url-escape = "0.1"

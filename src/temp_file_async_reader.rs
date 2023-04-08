@@ -1,26 +1,27 @@
-use std::fs::File;
-use std::io::{self};
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::{
+    fs::File,
+    io::{self},
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-use rocket::fs::TempFile;
-use rocket::tokio::fs::File as AsyncFile;
-use rocket::tokio::io::{AsyncRead, ReadBuf};
+use rocket::{
+    fs::TempFile,
+    tokio::{
+        fs::File as AsyncFile,
+        io::{AsyncRead, ReadBuf},
+    },
+};
 
 enum TempFileAsyncReaderInner<'v> {
-    File {
-        async_file: AsyncFile,
-    },
-    Buffered {
-        content: &'v [u8],
-        pos: usize,
-    },
+    File { async_file: AsyncFile },
+    Buffered { content: &'v [u8], pos: usize },
 }
 
 pub(crate) struct TempFileAsyncReader<'v> {
     #[allow(dead_code)]
     temp_file: Box<TempFile<'v>>,
-    inner: TempFileAsyncReaderInner<'v>,
+    inner:     TempFileAsyncReaderInner<'v>,
 }
 
 impl<'v> TempFileAsyncReader<'v> {
@@ -45,8 +46,7 @@ impl<'v> TempFileAsyncReader<'v> {
         }
 
         let async_file = if let TempFile::File {
-            path,
-            ..
+            path, ..
         } = temp_file.as_ref()
         {
             AsyncFile::from_std(File::open(path)?)
@@ -88,7 +88,7 @@ impl<'v> AsyncRead for TempFileAsyncReader<'v> {
                 *pos += read_size;
 
                 Poll::Ready(Ok(()))
-            }
+            },
         }
     }
 }

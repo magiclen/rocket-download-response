@@ -13,21 +13,21 @@ extern crate educe;
 
 mod temp_file_async_reader;
 
-use std::io::{self, Cursor};
-use std::marker::Unpin;
-use std::path::Path;
-use std::sync::Arc;
+use std::{
+    io::{self, Cursor},
+    marker::Unpin,
+    path::Path,
+    sync::Arc,
+};
 
 use mime::Mime;
-
-use rocket::fs::TempFile;
-use rocket::http::Status;
-use rocket::request::Request;
-use rocket::response::{self, Responder, Response};
-
-use rocket::tokio::fs::File as AsyncFile;
-use rocket::tokio::io::AsyncRead;
-
+use rocket::{
+    fs::TempFile,
+    http::Status,
+    request::Request,
+    response::{self, Responder, Response},
+    tokio::{fs::File as AsyncFile, io::AsyncRead},
+};
 use temp_file_async_reader::TempFileAsyncReader;
 
 #[derive(Educe)]
@@ -37,7 +37,7 @@ enum DownloadResponseData<'o> {
     Vec(Vec<u8>),
     Reader {
         #[educe(Debug(ignore))]
-        data: Box<dyn AsyncRead + Send + Unpin + 'o>,
+        data:           Box<dyn AsyncRead + Send + Unpin + 'o>,
         content_length: Option<u64>,
     },
     File(Arc<Path>, AsyncFile),
@@ -48,9 +48,9 @@ pub type DownloadResponse = DownloadResponsePro<'static>;
 
 #[derive(Debug)]
 pub struct DownloadResponsePro<'o> {
-    file_name: Option<String>,
+    file_name:    Option<String>,
     content_type: Option<Mime>,
-    data: DownloadResponseData<'o>,
+    data:         DownloadResponseData<'o>,
 }
 
 impl<'o> DownloadResponsePro<'o> {
@@ -182,13 +182,13 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
                 content_type!(self, response);
 
                 response.sized_body(data.len(), Cursor::new(data));
-            }
+            },
             DownloadResponseData::Vec(data) => {
                 file_name!(self, response);
                 content_type!(self, response);
 
                 response.sized_body(data.len(), Cursor::new(data));
-            }
+            },
             DownloadResponseData::Reader {
                 data,
                 content_length,
@@ -201,7 +201,7 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
                 }
 
                 response.streamed_body(data);
-            }
+            },
             DownloadResponseData::File(path, file) => {
                 if let Some(file_name) = self.file_name {
                     if file_name.is_empty() {
@@ -236,7 +236,7 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
                 }
 
                 response.sized_body(None, file);
-            }
+            },
             DownloadResponseData::TempFile(file) => {
                 if let Some(file_name) = self.file_name {
                     if file_name.is_empty() {
@@ -280,7 +280,7 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
                 response.streamed_body(
                     TempFileAsyncReader::from(file).map_err(|_| Status::InternalServerError)?,
                 );
-            }
+            },
         }
 
         response.ok()

@@ -1,11 +1,9 @@
 #[macro_use]
 extern crate rocket;
 
-use std::io::ErrorKind;
-use std::path::Path;
+use std::{io::ErrorKind, path::Path};
 
 use rocket::http::Status;
-
 use rocket_download_response::DownloadResponse;
 
 #[get("/")]
