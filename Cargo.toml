@@ -9,7 +9,6 @@ homepage = "https://magiclen.org/rocket-download-response"
 keywords = ["rocket", "server", "web", "download", "attach"]
 categories = ["web-programming"]
 description = "This crate provides a response struct used for client downloading."
-readme = "README.md"
 license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
