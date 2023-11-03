@@ -30,7 +30,7 @@ impl<'v> TempFileAsyncReader<'v> {
             content,
         } = temp_file.as_ref()
         {
-            Some(content.as_bytes())
+            Some(*content)
         } else {
             None
         };
