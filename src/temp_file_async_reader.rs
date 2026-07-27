@@ -19,6 +19,7 @@ enum TempFileAsyncReaderInner<'v> {
 }
 
 pub(crate) struct TempFileAsyncReader<'v> {
+    // Never read, but holding it keeps the temporary file on disk until the whole response has been sent.
     #[allow(dead_code)]
     temp_file: Box<TempFile<'v>>,
     inner:     TempFileAsyncReaderInner<'v>,
@@ -26,44 +27,29 @@ pub(crate) struct TempFileAsyncReader<'v> {
 
 impl<'v> TempFileAsyncReader<'v> {
     pub(crate) fn from(temp_file: Box<TempFile<'v>>) -> Result<Self, io::Error> {
-        let content = if let TempFile::Buffered {
-            content,
-        } = temp_file.as_ref()
-        {
-            Some(*content)
-        } else {
-            None
-        };
-
-        if let Some(content) = content {
-            return Ok(TempFileAsyncReader {
-                temp_file,
-                inner: TempFileAsyncReaderInner::Buffered {
-                    content,
-                    pos: 0,
-                },
-            });
-        }
-
-        let async_file = if let TempFile::File {
-            path, ..
-        } = temp_file.as_ref()
-        {
-            AsyncFile::from_std(File::open(path)?)
-        } else {
-            unreachable!()
+        let inner = match temp_file.as_ref() {
+            TempFile::Buffered {
+                content,
+            } => TempFileAsyncReaderInner::Buffered {
+                content,
+                pos: 0,
+            },
+            TempFile::File {
+                path, ..
+            } => TempFileAsyncReaderInner::File {
+                // `Responder::respond_to` is not async, so opening the file has to be done with the blocking API.
+                async_file: AsyncFile::from_std(File::open(path)?),
+            },
         };
 
         Ok(TempFileAsyncReader {
             temp_file,
-            inner: TempFileAsyncReaderInner::File {
-                async_file,
-            },
+            inner,
         })
     }
 }
 
-impl<'v> AsyncRead for TempFileAsyncReader<'v> {
+impl AsyncRead for TempFileAsyncReader<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         ctx: &mut Context<'_>,

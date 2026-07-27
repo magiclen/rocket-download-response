@@ -1,6 +1,6 @@
 [package]
 name = "rocket-download-response"
-version = "0.5.4"
+version = "0.6.0"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2024"
 rust-version = "1.89"
@@ -15,10 +15,5 @@ include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 [dependencies]
 rocket = "0.5"
 mime = "0.3.4"
-mime_guess = " 2"
-url-escape = "0.1"
-
-[dependencies.educe]
-version = "0.7"
-features = ["Debug"]
-default-features = false
+mime_guess = { version = "2", default-features = false }
+educe = { version = "0.7", default-features = false, features = ["Debug"] }
