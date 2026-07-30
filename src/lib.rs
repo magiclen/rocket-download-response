@@ -41,15 +41,32 @@ async fn index() -> io::Result<DownloadResponse> {
 }
 ```
 
+A reader is sent as it is. Its length can be given so that a `Content-Length` header is sent along with it.
+
+```rust
+use std::io::Cursor;
+
+use rocket::get;
+use rocket_download_response::DownloadResponse;
+
+#[get("/")]
+fn index() -> DownloadResponse {
+    DownloadResponse::from_reader_sized(Cursor::new(b"Hello world!"), 12)
+        .file_name("hello.txt")
+}
+```
+
 An uploaded file can be sent straight back. Rocket drops the extension from `TempFile::name`, so this crate puts it back from the media type of the upload.
 
 ```rust
+use std::io;
+
 use rocket::{form::Form, fs::TempFile, post};
 use rocket_download_response::DownloadResponsePro;
 
 #[post("/", data = "<file>")]
-fn echo(file: Form<TempFile<'_>>) -> DownloadResponsePro<'_> {
-    DownloadResponsePro::from_temp_file(file.into_inner())
+async fn echo(file: Form<TempFile<'_>>) -> io::Result<DownloadResponsePro<'_>> {
+    DownloadResponsePro::from_temp_file(file.into_inner()).await
 }
 ```
 
@@ -61,7 +78,9 @@ use rocket_download_response::DownloadResponse;
 
 #[get("/")]
 fn index() -> DownloadResponse {
-    DownloadResponse::from_vec(b"Hello world!".to_vec()).file_name("hello.txt").inline()
+    DownloadResponse::from_vec(b"Hello world!".to_vec())
+        .file_name("hello.txt")
+        .inline()
 }
 ```
 */
@@ -76,14 +95,12 @@ use std::{
     ffi::OsStr,
     io::{self, Cursor},
     path::Path,
-    sync::Arc,
 };
 
 use educe::Educe;
 use mime::Mime;
 use rocket::{
     fs::TempFile,
-    http::Status,
     request::Request,
     response::{self, Builder, Responder, Response},
     tokio::{fs::File as AsyncFile, io::AsyncRead},
@@ -99,8 +116,18 @@ enum DownloadResponseData<'o> {
         data:           Box<dyn AsyncRead + Send + Unpin + 'o>,
         content_length: Option<u64>,
     },
-    File(Arc<Path>, AsyncFile),
-    TempFile(Box<TempFile<'o>>),
+    File {
+        path: Box<Path>,
+        file: AsyncFile,
+        /// Read from the metadata of the file while it was opened, so the length of the body does not have to be found again by seeking.
+        len:  u64,
+    },
+    TempFile {
+        temp_file:  Box<TempFile<'o>>,
+        async_file: AsyncFile,
+        /// Recorded by Rocket while the upload was stored, so the length of the body does not have to be found again by seeking.
+        len:        u64,
+    },
 }
 
 /// A [`DownloadResponsePro`] that borrows nothing, which is what a route usually returns.
@@ -164,14 +191,34 @@ impl<'o> DownloadResponsePro<'o> {
         let path = path.as_ref();
 
         let file = AsyncFile::open(path).await?;
+        let metadata = file.metadata().await?;
 
-        Ok(Self::new(DownloadResponseData::File(Arc::from(path), file)))
+        Ok(Self::new(DownloadResponseData::File {
+            path: Box::from(path),
+            file,
+            len: metadata.len(),
+        }))
     }
 
-    /// Create a `DownloadResponse` instance from a `TempFile`.
-    #[inline]
-    pub fn from_temp_file(temp_file: TempFile<'o>) -> Self {
-        Self::new(DownloadResponseData::TempFile(Box::new(temp_file)))
+    /// Create a `DownloadResponse` instance from a `TempFile`, which is opened right away when it is stored on disk.
+    pub async fn from_temp_file(temp_file: TempFile<'o>) -> Result<Self, io::Error> {
+        let (async_file, len) = match &temp_file {
+            TempFile::File {
+                path,
+                len,
+                ..
+            } => (AsyncFile::open(path).await?, *len),
+            // A `TempFile` buffered in memory has no name, no media type and no file on disk, so nothing but its content is worth keeping.
+            TempFile::Buffered {
+                content,
+            } => return Ok(Self::new(DownloadResponseData::Bytes(Cow::Borrowed(content)))),
+        };
+
+        Ok(Self::new(DownloadResponseData::TempFile {
+            temp_file: Box::new(temp_file),
+            async_file,
+            len,
+        }))
     }
 
     /// Set the file name the client should save the body as. An empty name sends no name at all.
@@ -201,6 +248,8 @@ impl<'o> DownloadResponsePro<'o> {
         self
     }
 }
+
+const OCTET_STREAM: &str = "application/octet-stream";
 
 const HEX_DIGITS: [u8; 16] = *b"0123456789ABCDEF";
 
@@ -240,27 +289,26 @@ const FILE_NAME_STAR_PREFIX: &str = "\"; filename*=UTF-8''";
 fn write_content_disposition(response: &mut Builder<'_>, inline: bool, file_name: Option<&str>) {
     let disposition = if inline { "inline" } else { "attachment" };
 
-    let file_name = file_name.filter(|file_name| !file_name.is_empty());
+    let Some(file_name) = file_name.filter(|file_name| !file_name.is_empty()) else {
+        // The disposition on its own is a `&'static str`, so no string has to be built for it.
+        response.raw_header("Content-Disposition", disposition);
 
-    let mut v = String::with_capacity(match file_name {
-        // The ASCII fallback keeps the length of the name, the RFC 8187 copy triples it at worst.
-        Some(file_name) => {
-            disposition.len()
-                + FILE_NAME_PREFIX.len()
-                + FILE_NAME_STAR_PREFIX.len()
-                + file_name.len() * 4
-        },
-        None => disposition.len(),
-    });
+        return;
+    };
+
+    // The ASCII fallback keeps the length of the name, the RFC 8187 copy triples it at worst.
+    let mut v = String::with_capacity(
+        disposition.len()
+            + FILE_NAME_PREFIX.len()
+            + FILE_NAME_STAR_PREFIX.len()
+            + file_name.len() * 4,
+    );
 
     v.push_str(disposition);
-
-    if let Some(file_name) = file_name {
-        v.push_str(FILE_NAME_PREFIX);
-        encode_ascii_fallback_to_string(file_name, &mut v);
-        v.push_str(FILE_NAME_STAR_PREFIX);
-        encode_attr_char_to_string(file_name, &mut v);
-    }
+    v.push_str(FILE_NAME_PREFIX);
+    encode_ascii_fallback_to_string(file_name, &mut v);
+    v.push_str(FILE_NAME_STAR_PREFIX);
+    encode_attr_char_to_string(file_name, &mut v);
 
     response.raw_header("Content-Disposition", v);
 }
@@ -278,7 +326,9 @@ fn write_content_type(
         return;
     }
 
-    if let DownloadResponseData::TempFile(temp_file) = data
+    if let DownloadResponseData::TempFile {
+        temp_file, ..
+    } = data
         && let Some(content_type) = temp_file.content_type()
         // `application/octet-stream` is what a client sends when it does not know either, so a guess does better.
         && !content_type.is_binary()
@@ -290,16 +340,19 @@ fn write_content_type(
 
     let extension = file_name.map(Path::new).and_then(Path::extension).or_else(|| match data {
         // The file name may have been replaced with one that carries no extension, but the path still knows what the file is.
-        DownloadResponseData::File(path, _) => path.extension(),
+        DownloadResponseData::File {
+            path, ..
+        } => path.extension(),
         _ => None,
     });
 
-    let content_type = match extension.and_then(OsStr::to_str) {
-        Some(extension) => mime_guess::from_ext(extension).first_or_octet_stream(),
-        None => mime::APPLICATION_OCTET_STREAM,
-    };
+    // A guess is a `&'static str`, so the header does not have to be built from an owned `Mime`.
+    let content_type = extension
+        .and_then(OsStr::to_str)
+        .and_then(|extension| mime_guess::from_ext(extension).first_raw())
+        .unwrap_or(OCTET_STREAM);
 
-    response.raw_header("Content-Type", content_type.to_string());
+    response.raw_header("Content-Type", content_type);
 }
 
 /// Rocket strips every extension from `TempFile::name`, so append back the one the client sent, or the one that belongs to the uploaded media type.
@@ -324,10 +377,12 @@ fn temp_file_name(temp_file: &TempFile<'_>) -> Option<String> {
 /// The file name the source suggests, used when the caller sets none.
 fn default_file_name(data: &DownloadResponseData<'_>) -> Option<String> {
     match data {
-        DownloadResponseData::File(path, _) => {
-            path.file_name().map(|file_name| file_name.to_string_lossy().into_owned())
-        },
-        DownloadResponseData::TempFile(temp_file) => temp_file_name(temp_file),
+        DownloadResponseData::File {
+            path, ..
+        } => path.file_name().map(|file_name| file_name.to_string_lossy().into_owned()),
+        DownloadResponseData::TempFile {
+            temp_file, ..
+        } => temp_file_name(temp_file),
         _ => None,
     }
 }
@@ -362,15 +417,22 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for DownloadResponsePro<'o> {
 
                 response.streamed_body(data);
             },
-            DownloadResponseData::File(_, file) => {
-                response.sized_body(None, file);
+            DownloadResponseData::File {
+                file,
+                len,
+                ..
+            } => {
+                // The length is already known, so it does not have to be found again by seeking to the end of the file. A length that does not fit in a `usize` is left to be handled that way.
+                response.sized_body(usize::try_from(len).ok(), file);
             },
-            DownloadResponseData::TempFile(file) => {
-                response.raw_header("Content-Length", file.len().to_string());
+            DownloadResponseData::TempFile {
+                temp_file,
+                async_file,
+                len,
+            } => {
+                response.raw_header("Content-Length", len.to_string());
 
-                response.streamed_body(
-                    TempFileAsyncReader::from(file).map_err(|_| Status::InternalServerError)?,
-                );
+                response.streamed_body(TempFileAsyncReader::new(temp_file, async_file));
             },
         }
 

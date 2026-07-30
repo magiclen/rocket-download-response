@@ -76,8 +76,10 @@ async fn file_page() -> Result<DownloadResponse, Status> {
 }
 
 #[post("/echo", data = "<file>")]
-fn echo_page(file: Form<TempFile<'_>>) -> DownloadResponsePro<'_> {
+async fn echo_page(file: Form<TempFile<'_>>) -> Result<DownloadResponsePro<'_>, Status> {
     DownloadResponsePro::from_temp_file(file.into_inner())
+        .await
+        .map_err(|_| Status::InternalServerError)
 }
 
 fn client() -> Client {
@@ -268,7 +270,7 @@ fn temp_file_uploaded_without_a_media_type() {
     assert_eq!(Some("application/pdf"), response.headers().get_one("Content-Type"));
 }
 
-/// A value field of a form arrives as a `TempFile` that is buffered in memory instead of stored on disk, and it carries neither a name nor a media type.
+/// A value field of a form arrives as a `TempFile` that is buffered in memory instead of stored on disk, and it carries neither a name nor a media type. Such a body is sent as plain bytes, so its length is left to the server to report just like the one of a `Vec<u8>`.
 #[test]
 fn buffered_temp_file() {
     let client = client();
@@ -279,6 +281,5 @@ fn buffered_temp_file() {
     assert_eq!(Status::Ok, response.status());
     assert_eq!(Some("attachment"), response.headers().get_one("Content-Disposition"));
     assert_eq!(Some("application/octet-stream"), response.headers().get_one("Content-Type"));
-    assert_eq!(Some("12"), response.headers().get_one("Content-Length"));
     assert_eq!(Some(String::from("Hello world!")), response.into_string());
 }
