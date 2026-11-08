@@ -12,7 +12,8 @@ use rocket::{
     },
 };
 
-/// The reader of a `TempFile` that is stored on disk. A `TempFile` buffered in memory never reaches this reader because its content is sent as plain bytes instead.
+/// The reader of a `TempFile` that is stored on disk.
+/// A `TempFile` buffered in memory never reaches this reader because its content is sent as plain bytes instead.
 pub(crate) struct TempFileAsyncReader<'v> {
     // Never read, but holding it keeps the temporary file on disk until the whole response has been sent.
     #[expect(dead_code)]

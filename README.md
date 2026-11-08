@@ -43,7 +43,8 @@ async fn index() -> io::Result<DownloadResponse> {
 }
 ```
 
-A reader is sent as it is. Its length can be given so that a `Content-Length` header is sent along with it.
+A reader is sent as it is.
+Its length can be given so that a `Content-Length` header is sent along with it.
 
 ```rust
 use std::io::Cursor;
@@ -58,7 +59,8 @@ fn index() -> DownloadResponse {
 }
 ```
 
-An uploaded file can be sent straight back. Rocket drops the extension from `TempFile::name`, so this crate puts it back from the media type of the upload.
+An uploaded file can be sent straight back.
+Rocket drops the extension from `TempFile::name`, so this crate uses the original file name to recover it and falls back to the upload's media type.
 
 ```rust
 use std::io;
